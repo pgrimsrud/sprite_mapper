@@ -43,9 +43,12 @@ def sort_value(key):
 def get_most_used_colors(image, count):
     global color_list
     color_list = {}
+    #print(image.get_height())
+    #print(image.get_width())
     for i in range(image.get_height()):
         for j in range(image.get_width()):
-            color = image.get_at((i,j))
+            #print("%d,%d" % (i, j))
+            color = image.get_at((j,i))
             if (color.r, color.g, color.b, color.a) not in color_list:
                 color_list[(color.r, color.g, color.b, color.a)] = 1
             else:
@@ -72,31 +75,49 @@ def pixel_compare(pixel, color):
     return True
 
 def create_pattern(image, map):
-    bytes = [0] * ((image.get_height() * image.get_width()) / 4)
     #print(image.get_height())
     #print(image.get_width())
+    bytes = [0] * int((image.get_height() * image.get_width()) / 4)
     for i in range(image.get_height()):
-        for j in range(image.get_width()/8):
+        for j in range(int(image.get_width()/8)):
             for k in range(8):
                 pixel = image.get_at((j*8+k,i))
                 #print("x=%x y=%x byte=%x" % (j*8+k,i,(i/8)*(image.get_width()*2)+i%8+j*16))
                 if pixel_compare(pixel, map[1]):
-                    bytes[(i/8)*(image.get_width()*2)+i%8+j*16]   |= (1<<(7-k))
+                    bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16]   |= (1<<(7-k))
                 if pixel_compare(pixel, map[2]):
-                    bytes[(i/8)*(image.get_width()*2)+i%8+j*16+8] |= (1<<(7-k))
+                    bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16+8] |= (1<<(7-k))
                 if pixel_compare(pixel, map[3]):
-                    bytes[(i/8)*(image.get_width()*2)+i%8+j*16]   |= (1<<(7-k))
-                    bytes[(i/8)*(image.get_width()*2)+i%8+j*16+8] |= (1<<(7-k))
+                    bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16]   |= (1<<(7-k))
+                    bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16+8] |= (1<<(7-k))
     return bytes
 
-def create_nametable(image):
-    bytes = [0] * (256/8 * 240/8)
-    k = 0
-    for i in range(image.get_height()/8):
-        for j in range(image.get_width()/8):
-            bytes[i*256/8 + j] = k
-            k += 1
-    return bytes
+def create_nametable(pattern):
+    nametable = [-1] * int(len(pattern)/16)
+    reduced_pattern = [0] * len(pattern)
+    nametable_index = 0
+    
+    for i in range(0,len(nametable)):
+        if nametable[i] == -1:
+            nametable[i] = nametable_index
+            for j in range(0,16):
+                reduced_pattern[nametable_index*16 + j] = pattern[i*16 + j]
+                
+            for j in range(i+1,len(nametable)):
+                same = 1
+                for k in range(0,16):
+                    if reduced_pattern[nametable_index*16 + k] != pattern[j*16 + k]:
+                        same = 0
+                if same == 1:
+                    nametable[j] = nametable_index
+            nametable_index += 1
+    
+    #k = 0
+    #for i in range(int(image.get_height()/8)):
+    #    for j in range(int(image.get_width()/8)):
+    #        bytes[i*int(image.get_width()/8) + j] = k
+    #        k += 1
+    return reduced_pattern[0:nametable_index*16], nametable
 
 def main():
     in_file = None
@@ -149,6 +170,9 @@ def main():
 
     out_image = image.copy()
 
+    #print(image.get_height())
+    #print(image.get_width())
+    
     if map == None:
         map = get_most_used_colors(image, 4)
 
@@ -162,18 +186,18 @@ def main():
 
     if c_file != None:
         c_pattern_table = create_pattern(out_image, map)
-        c_name_table = create_nametable(out_image)
+        c_reduced_pattern, c_name_table = create_nametable(c_pattern_table)
         c_handle = open(c_file, 'w')
-        c_handle.write("pattern = {")
-        for i in range(len(c_pattern_table)):
-            c_handle.write("0x%02X," % (c_pattern_table[i]))
+        c_handle.write("pattern[%d] = {" % (len(c_reduced_pattern)))
+        for i in range(len(c_reduced_pattern)):
+            c_handle.write("0x%02X," % (c_reduced_pattern[i]))
         c_handle.write("};\n")
-        c_handle.write("nametable = {")
+        c_handle.write("nametable[%d] = {" % (len(c_name_table)))
         for i in range(len(c_name_table)):
             c_handle.write("0x%02X," % (c_name_table[i]))
         c_handle.write("};\n")
         c_handle.close()
-        print(len(c_pattern_table))
+        #print(len(c_pattern_table))
 
     try:
         pygame.image.save(out_image, out_file)
