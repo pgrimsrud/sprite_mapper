@@ -92,7 +92,34 @@ def create_pattern(image, map):
                     bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16+8] |= (1<<(7-k))
     return bytes
 
-def create_nametable(pattern):
+def create_nametable(pattern, offset):
+    nametable = [-1] * int(len(pattern)/16)
+    reduced_pattern = [0] * len(pattern)
+    nametable_index = 0
+    
+    for i in range(0,len(nametable)):
+        if nametable[i] == -1:
+            nametable[i] = nametable_index + offset
+            for j in range(0,16):
+                reduced_pattern[nametable_index*16 + j] = pattern[i*16 + j]
+                
+            for j in range(i+1,len(nametable)):
+                same = 1
+                for k in range(0,16):
+                    if reduced_pattern[nametable_index*16 + k] != pattern[j*16 + k]:
+                        same = 0
+                if same == 1:
+                    nametable[j] = nametable_index + offset
+            nametable_index += 1
+    
+    #k = 0
+    #for i in range(int(image.get_height()/8)):
+    #    for j in range(int(image.get_width()/8)):
+    #        bytes[i*int(image.get_width()/8) + j] = k
+    #        k += 1
+    return reduced_pattern[0:nametable_index*16], nametable
+
+def create_nametable_horizontal_screens(pattern):
     nametable = [-1] * int(len(pattern)/16)
     reduced_pattern = [0] * len(pattern)
     nametable_index = 0
@@ -135,9 +162,10 @@ def main():
     out_image = None
     map = None
     c_file = None
+    offset = 0
 
     short_options = ":h"
-    long_options = ["help", "in=", "out=", "map=", "c="]
+    long_options = ["help", "in=", "out=", "map=", "c=", "offset="]
     try:
         options, arguments = getopt.getopt(sys.argv[1:], short_options, long_options)
     except getopt.GetoptError as error:
@@ -161,6 +189,8 @@ def main():
                 map.append((int(tmp2[0]),int(tmp2[1]),int(tmp2[2]),int(tmp2[3])))
         if option == "--c":
             c_file = argument
+        if option == "--offset":
+            offset = int(argument)
 
     if in_file == None:
         print("input file required")
@@ -195,7 +225,7 @@ def main():
 
     if c_file != None:
         c_pattern_table = create_pattern(out_image, map)
-        c_reduced_pattern, c_name_table = create_nametable(c_pattern_table)
+        c_reduced_pattern, c_name_table = create_nametable(c_pattern_table, offset)
         c_handle = open(c_file, 'w')
         c_handle.write("unsigned char pattern[%d] = {" % (len(c_reduced_pattern)))
         for i in range(len(c_reduced_pattern)):
