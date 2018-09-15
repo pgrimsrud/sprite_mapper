@@ -96,21 +96,30 @@ def create_nametable(pattern):
     nametable = [-1] * int(len(pattern)/16)
     reduced_pattern = [0] * len(pattern)
     nametable_index = 0
+    screens = int((len(nametable)+959)/960)
     
-    for i in range(0,len(nametable)):
-        if nametable[i] == -1:
-            nametable[i] = nametable_index
-            for j in range(0,16):
-                reduced_pattern[nametable_index*16 + j] = pattern[i*16 + j]
-                
-            for j in range(i+1,len(nametable)):
-                same = 1
-                for k in range(0,16):
-                    if reduced_pattern[nametable_index*16 + k] != pattern[j*16 + k]:
-                        same = 0
-                if same == 1:
-                    nametable[j] = nametable_index
-            nametable_index += 1
+    for m in range(0,screens):
+        for i in range(0,960):
+            if nametable[m*960+i] == -1:
+                nametable[m*960+i] = nametable_index
+                for j in range(0,16):
+                    reduced_pattern[nametable_index*16 + j] = pattern[((i%30) * 32*screens + m * 32 + int(i/30))*16 + j]
+                    
+                for n in range(m, screens):
+                    start = 0
+                    if n == m:
+                        start = (n*960+i)+1
+                    else:
+                        start = 0
+                    for j in range(start,960):
+                        same = 1
+                        for k in range(0,16):
+                            #print("j=%d screens=%d n=%d k=%d length=%d index=%d" % (j, screens, n, k, len(pattern), int((int(j/32) * 32*screens + n * 32 + j%32)*16) + k))
+                            if reduced_pattern[nametable_index*16 + k] != pattern[((j%30) * 32*screens + n * 32 + int(j/30))*16 + k]:
+                                same = 0
+                        if same == 1:
+                            nametable[n*960+j] = nametable_index
+                nametable_index += 1
     
     #k = 0
     #for i in range(int(image.get_height()/8)):
@@ -188,11 +197,11 @@ def main():
         c_pattern_table = create_pattern(out_image, map)
         c_reduced_pattern, c_name_table = create_nametable(c_pattern_table)
         c_handle = open(c_file, 'w')
-        c_handle.write("pattern[%d] = {" % (len(c_reduced_pattern)))
+        c_handle.write("unsigned char pattern[%d] = {" % (len(c_reduced_pattern)))
         for i in range(len(c_reduced_pattern)):
             c_handle.write("0x%02X," % (c_reduced_pattern[i]))
         c_handle.write("};\n")
-        c_handle.write("nametable[%d] = {" % (len(c_name_table)))
+        c_handle.write("unsigned char nametable[%d] = {" % (len(c_name_table)))
         for i in range(len(c_name_table)):
             c_handle.write("0x%02X," % (c_name_table[i]))
         c_handle.write("};\n")
