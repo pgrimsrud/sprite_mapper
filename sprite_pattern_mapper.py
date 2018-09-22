@@ -13,6 +13,8 @@ def print_usage():
     print(" --in= input image")
     print(" --out= output image")
     print(" --c= .c file to output pattern and nametable")
+    print(" --offset= a static offset to add to all nametable values. This allows you to reserve sprite space at the beginning of the pattern table")
+    print(" --RLE dump the nametable in an RLE format")
 
 def palette_map(pixel, map):
     index = 0
@@ -155,6 +157,54 @@ def create_nametable_horizontal_screens(pattern):
     #        k += 1
     return reduced_pattern[0:nametable_index*16], nametable
 
+def create_rle( nametable ):
+    histo = [0]*256
+    key = -1
+    rle = []
+    count = 1
+    pre = -1
+    
+    for data in nametable:
+        histo[data] += 1
+        
+    for i in range(1,len(histo)):
+        if histo[i] == 0:
+            key = i
+            break
+            
+    if key == -1:
+        return -1
+        
+    rle.append(key)
+    pre = nametable[0]
+
+    for i in range(1,len(nametable)):
+        if nametable[i] != pre or count == 256 or i == len(nametable)-1:
+            if count == 1:
+                rle.append(pre)
+                pre = nametable[i]
+                if i == len(nametable)-1:
+                    rle.append(nametable[i])
+            elif count == 2:
+                rle.append(pre)
+                rle.append(pre)
+                pre = nametable[i]
+                if i == len(nametable)-1:
+                    rle.append(nametable[i])
+            else:
+                rle.append(pre)
+                rle.append(key)
+                rle.append(count-1)
+            pre = nametable[i]
+            count = 1
+        else:
+            count += 1
+            
+    rle.append(key)
+    rle.append(0)
+    
+    return rle
+    
 def main():
     in_file = None
     out_file = None
@@ -163,9 +213,10 @@ def main():
     map = None
     c_file = None
     offset = 0
+    rle = False
 
     short_options = ":h"
-    long_options = ["help", "in=", "out=", "map=", "c=", "offset="]
+    long_options = ["help", "in=", "out=", "map=", "c=", "offset=", "RLE"]
     try:
         options, arguments = getopt.getopt(sys.argv[1:], short_options, long_options)
     except getopt.GetoptError as error:
@@ -191,6 +242,8 @@ def main():
             c_file = argument
         if option == "--offset":
             offset = int(argument)
+        if option == "--RLE":
+            rle = True
 
     if in_file == None:
         print("input file required")
@@ -226,15 +279,24 @@ def main():
     if c_file != None:
         c_pattern_table = create_pattern(out_image, map)
         c_reduced_pattern, c_name_table = create_nametable(c_pattern_table, offset)
+        if rle == True:
+            c_rle_name_table = create_rle(c_name_table)
+        
         c_handle = open(c_file, 'w')
         c_handle.write("unsigned char pattern[%d] = {" % (len(c_reduced_pattern)))
         for i in range(len(c_reduced_pattern)):
             c_handle.write("0x%02X," % (c_reduced_pattern[i]))
         c_handle.write("};\n")
-        c_handle.write("unsigned char nametable[%d] = {" % (len(c_name_table)))
-        for i in range(len(c_name_table)):
-            c_handle.write("0x%02X," % (c_name_table[i]))
-        c_handle.write("};\n")
+        if rle == True:
+            c_handle.write("unsigned char rle_nametable[%d] = {" % (len(c_rle_name_table)))
+            for i in range(len(c_rle_name_table)):
+                c_handle.write("0x%02X," % (c_rle_name_table[i]))
+            c_handle.write("};\n")
+        else:
+            c_handle.write("unsigned char nametable[%d] = {" % (len(c_name_table)))
+            for i in range(len(c_name_table)):
+                c_handle.write("0x%02X," % (c_name_table[i]))
+            c_handle.write("};\n")
         c_handle.close()
         #print(len(c_pattern_table))
 
