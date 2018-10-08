@@ -4,6 +4,72 @@ import sys
 
 pygame.init()
 
+colors = {
+           'BLACK'        : (  0,  0,  0,255),
+           'BLACK_2'      : (  0,  0,  0,255),
+           'BLACK_3'      : (  0,  0,  0,255),
+           'BLACK_4'      : (  0,  0,  0,255),
+           'BLACK_5'      : (  0,  0,  0,255),
+           'BLACK_6'      : (  0,  0,  0,255),
+           'BLACK_7'      : (  0,  0,  0,255),
+           'BLACK_8'      : (  0,  0,  0,255),
+           'BLACK_9'      : (  0,  0,  0,255),
+           'BLACK_10'     : (  0,  0,  0,255),
+      'DARK_GRAY'         : ( 84, 84, 84,255),
+      'DARK_GRAY_2'       : ( 60, 60, 60,255),
+           'GRAY'         : (152,150,152,255),
+           'GRAY_2'       : (160,162,160,255),
+     'LIGHT_GRAY'         : (255,255,255,255),
+           'WHITE'        : (255,255,255,255),
+      'DARK_GRAY_BLUE'    : (  0, 30,116,255),
+           'GRAY_BLUE'    : (  8, 76,196,255),
+     'LIGHT_GRAY_BLUE'    : ( 76,154,236,255),
+'VERY_LIGHT_GRAY_BLUE'    : (168,204,236,255),
+      'DARK_BLUE'         : (  8, 16,144,255),
+           'BLUE'         : ( 48, 50,236,255),
+     'LIGHT_BLUE'         : (120,124,236,255),
+'VERY_LIGHT_BLUE'         : (188,188,236,255),
+      'DARK_PURPLE'       : ( 48,  0,136,255),
+           'PURPLE'       : ( 92, 30,228,255),
+     'LIGHT_PURPLE'       : (176, 98,236,255),
+'VERY_LIGHT_PURPLE'       : (212,178,236,255),
+      'DARK_PINK'         : ( 68,  0,100,255),
+           'PINK'         : (136, 20,176,255),
+     'LIGHT_PINK'         : (228, 84,236,255),
+'VERY_LIGHT_PINK'         : (236,174,236,255),
+      'DARK_FUCHSIA'      : ( 92,  0, 48,255),
+           'FUCHSIA'      : (160, 20,100,255),
+     'LIGHT_FUCHSIA'      : (236, 88,180,255),
+'VERY_LIGHT_FUCHSIA'      : (236,174,212,255),
+      'DARK_RED'          : ( 84,  4,  0,255),
+           'RED'          : (152, 34, 32,255),
+     'LIGHT_RED'          : (236,106,100,255),
+'VERY_LIGHT_RED'          : (236,180,176,255),
+      'DARK_ORANGE'       : ( 60, 24,  0,255),
+           'ORANGE'       : (120, 60,  0,255),
+     'LIGHT_ORANGE'       : (212,136, 32,255),
+'VERY_LIGHT_ORANGE'       : (228,196,144,255),
+      'DARK_TAN'          : ( 32, 42,  0,255),
+           'TAN'          : ( 84, 90,  0,255),
+     'LIGHT_TAN'          : (160,170,  0,255),
+'VERY_LIGHT_TAN'          : (204,210,120,255),
+      'DARK_GREEN'        : (  8, 58,  0,255),
+           'GREEN'        : ( 40,114,  0,255),
+     'LIGHT_GREEN'        : (116,196,  0,255),
+'VERY_LIGHT_GREEN'        : (180,222,120,255),
+      'DARK_LIME_GREEN'   : (  0, 64,  0,255),
+           'LIME_GREEN'   : (  8,124,  0,255),
+     'LIGHT_LIME_GREEN'   : ( 76,208, 32,255),
+'VERY_LIGHT_LIME_GREEN'   : (168,226,144,255),
+      'DARK_SEAFOAM_GREEN': (  0, 60,  0,255),
+           'SEAFOAM_GREEN': (  0,118, 40,255),
+     'LIGHT_SEAFOAM_GREEN': ( 56,204,108,255),
+'VERY_LIGHT_SEAFOAM_GREEN': (152,226,180,255),
+      'DARK_CYAN'         : (  0, 50, 60,255),
+           'CYAN'         : (  0,102,120,255),
+     'LIGHT_CYAN'         : ( 56,180,204,255),
+'VERY_LIGHT_CYAN'         : (160,214,228,255),
+}
 color_list = {}
 
 def print_usage():
@@ -15,6 +81,7 @@ def print_usage():
     print(" --c= .c file to output pattern and nametable")
     print(" --offset= a static offset to add to all nametable values. This allows you to reserve sprite space at the beginning of the pattern table")
     print(" --RLE dump the nametable in an RLE format")
+    print(" --hex dump the nametable and pattern table in hex")
 
 def palette_map(pixel, map):
     index = 0
@@ -36,7 +103,7 @@ def palette_map(pixel, map):
         if diff == None or tmp_diff < diff:
             index = i
             diff = tmp_diff
-    return (map[index][2], map[index][1], map[index][0], map[index][3])
+    return (map[index][0], map[index][1], map[index][2], map[index][3])
 
 def sort_value(key):
     global color_list
@@ -66,11 +133,11 @@ def get_most_used_colors(image, count):
 
 def pixel_compare(pixel, color):
     #print("%X %X %X %X" % (pixel.r, pixel.g, pixel.b, pixel.a))
-    if pixel.r != color[2]:
+    if pixel.r != color[0]:
         return False
     if pixel.g != color[1]:
         return False
-    if pixel.b != color[0]:
+    if pixel.b != color[2]:
         return False
     if pixel.a != color[3]:
         return False
@@ -214,9 +281,10 @@ def main():
     c_file = None
     offset = 0
     rle = False
+    hex_option = False
 
     short_options = ":h"
-    long_options = ["help", "in=", "out=", "map=", "c=", "offset=", "RLE"]
+    long_options = ["help", "in=", "out=", "map=", "c=", "offset=", "RLE", "hex"]
     try:
         options, arguments = getopt.getopt(sys.argv[1:], short_options, long_options)
     except getopt.GetoptError as error:
@@ -236,15 +304,18 @@ def main():
             map = []
             tmp = argument.split(":")
             for tmp_color in tmp:
-                tmp2 = tmp_color.split(",")
-                map.append((int(tmp2[0]),int(tmp2[1]),int(tmp2[2]),int(tmp2[3])))
+                if tmp_color != '':
+                    tmp2 = tmp_color.split(",")
+                    map.append((int(tmp2[0]),int(tmp2[1]),int(tmp2[2]),int(tmp2[3])))
         if option == "--c":
             c_file = argument
         if option == "--offset":
             offset = int(argument)
         if option == "--RLE":
             rle = True
-
+        if option == "--hex":
+            hex_option = True
+            
     if in_file == None:
         print("input file required")
         print_usage()
@@ -285,17 +356,26 @@ def main():
         c_handle = open(c_file, 'w')
         c_handle.write("unsigned char pattern[%d] = {" % (len(c_reduced_pattern)))
         for i in range(len(c_reduced_pattern)):
-            c_handle.write("0x%02X," % (c_reduced_pattern[i]))
+            if hex_option == True:
+                c_handle.write("0x%02X," % (c_reduced_pattern[i]))
+            else:
+                c_handle.write("%d," % (c_reduced_pattern[i]))
         c_handle.write("};\n")
         if rle == True:
             c_handle.write("unsigned char rle_nametable[%d] = {" % (len(c_rle_name_table)))
             for i in range(len(c_rle_name_table)):
-                c_handle.write("0x%02X," % (c_rle_name_table[i]))
+                if hex_option == True:
+                    c_handle.write("0x%02X," % (c_rle_name_table[i]))
+                else:
+                    c_handle.write("%d," % (c_rle_name_table[i]))
             c_handle.write("};\n")
         else:
             c_handle.write("unsigned char nametable[%d] = {" % (len(c_name_table)))
             for i in range(len(c_name_table)):
-                c_handle.write("0x%02X," % (c_name_table[i]))
+                if hex_option == True:
+                    c_handle.write("0x%02X," % (c_name_table[i]))
+                else:
+                    c_handle.write("%d," % (c_name_table[i]))
             c_handle.write("};\n")
         c_handle.close()
         #print(len(c_pattern_table))
@@ -305,5 +385,6 @@ def main():
     except pygame.error as error:
         print(error)
         sys.exit(2)
-    
-main()
+
+if __name__ == '__main__':
+    main()
