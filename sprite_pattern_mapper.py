@@ -165,13 +165,13 @@ def create_nametable(pattern, offset):
     nametable = [-1] * int(len(pattern)/16)
     reduced_pattern = [0] * len(pattern)
     nametable_index = 0
-    
+
     for i in range(0,len(nametable)):
         if nametable[i] == -1:
             nametable[i] = nametable_index + offset
             for j in range(0,16):
                 reduced_pattern[nametable_index*16 + j] = pattern[i*16 + j]
-                
+
             for j in range(i+1,len(nametable)):
                 same = 1
                 for k in range(0,16):
@@ -180,7 +180,7 @@ def create_nametable(pattern, offset):
                 if same == 1:
                     nametable[j] = nametable_index + offset
             nametable_index += 1
-    
+
     #k = 0
     #for i in range(int(image.get_height()/8)):
     #    for j in range(int(image.get_width()/8)):
@@ -193,14 +193,14 @@ def create_nametable_horizontal_screens(pattern):
     reduced_pattern = [0] * len(pattern)
     nametable_index = 0
     screens = int((len(nametable)+959)/960)
-    
+
     for m in range(0,screens):
         for i in range(0,960):
             if nametable[m*960+i] == -1:
                 nametable[m*960+i] = nametable_index
                 for j in range(0,16):
                     reduced_pattern[nametable_index*16 + j] = pattern[((i%30) * 32*screens + m * 32 + int(i/30))*16 + j]
-                    
+
                 for n in range(m, screens):
                     start = 0
                     if n == m:
@@ -216,7 +216,7 @@ def create_nametable_horizontal_screens(pattern):
                         if same == 1:
                             nametable[n*960+j] = nametable_index
                 nametable_index += 1
-    
+
     #k = 0
     #for i in range(int(image.get_height()/8)):
     #    for j in range(int(image.get_width()/8)):
@@ -230,18 +230,18 @@ def create_rle( nametable ):
     rle = []
     count = 1
     pre = -1
-    
+
     for data in nametable:
         histo[data] += 1
-        
+
     for i in range(1,len(histo)):
         if histo[i] == 0:
             key = i
             break
-            
+
     if key == -1:
         return -1
-        
+
     rle.append(key)
     pre = nametable[0]
 
@@ -261,17 +261,20 @@ def create_rle( nametable ):
             else:
                 rle.append(pre)
                 rle.append(key)
-                rle.append(count-1)
+                if i == len(nametable)-1:
+                    rle.append(count)
+                else:
+                    rle.append(count-1)
             pre = nametable[i]
             count = 1
         else:
             count += 1
-            
+
     rle.append(key)
     rle.append(0)
-    
+
     return rle
-    
+
 def main():
     in_file = None
     out_file = None
@@ -315,7 +318,7 @@ def main():
             rle = True
         if option == "--hex":
             hex_option = True
-            
+
     if in_file == None:
         print("input file required")
         print_usage()
@@ -335,7 +338,7 @@ def main():
 
     #print(image.get_height())
     #print(image.get_width())
-    
+
     if map == None:
         map = get_most_used_colors(image, 4)
 
@@ -352,7 +355,7 @@ def main():
         c_reduced_pattern, c_name_table = create_nametable(c_pattern_table, offset)
         if rle == True:
             c_rle_name_table = create_rle(c_name_table)
-        
+
         c_handle = open(c_file, 'w')
         c_handle.write("unsigned char pattern[%d] = {" % (len(c_reduced_pattern)))
         for i in range(len(c_reduced_pattern)):
