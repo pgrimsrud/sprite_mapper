@@ -82,6 +82,7 @@ def print_usage():
     print(" --offset= a static offset to add to all nametable values. This allows you to reserve sprite space at the beginning of the pattern table")
     print(" --RLE dump the nametable in an RLE format")
     print(" --hex dump the nametable and pattern table in hex")
+    print(" --attribute gnerate attribute tables")
 
 def palette_map(pixel, map):
     index = 0
@@ -143,7 +144,7 @@ def pixel_compare(pixel, color):
         return False
     return True
 
-def create_pattern(image, map):
+def create_pattern(image, map, attribute_map):
     #print(image.get_height())
     #print(image.get_width())
     bytes = [0] * int((image.get_height() * image.get_width()) / 4)
@@ -151,15 +152,73 @@ def create_pattern(image, map):
         for j in range(int(image.get_width()/8)):
             for k in range(8):
                 pixel = image.get_at((j*8+k,i))
+                attribute_offset = 0
+                if attribute_map != None:
+                    if i < 240:
+                        attribute_offset = 3*attribute_map[16*(int(i/16)) + int(j/2)]
+                    else:
+                        attribute_offset = 3*attribute_map[256 + 16*(int((i-240)/16)) + int(j/2)]
+
+
                 #print("x=%x y=%x byte=%x" % (j*8+k,i,(i/8)*(image.get_width()*2)+i%8+j*16))
-                if pixel_compare(pixel, map[1]):
+                if pixel_compare(pixel, map[attribute_offset+1]):
                     bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16]   |= (1<<(7-k))
-                if pixel_compare(pixel, map[2]):
+                if pixel_compare(pixel, map[attribute_offset+2]):
                     bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16+8] |= (1<<(7-k))
-                if pixel_compare(pixel, map[3]):
+                if pixel_compare(pixel, map[attribute_offset+3]):
                     bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16]   |= (1<<(7-k))
                     bytes[(int(i/8))*(image.get_width()*2)+i%8+j*16+8] |= (1<<(7-k))
     return bytes
+
+def create_attributes(image, map):
+    #print(image.get_height())
+    #print(image.get_width())
+    screens = int((image.get_height() + 239)/240)
+    attributes = [-1] * (256 * screens)
+    #print(attributes)
+    for i in range(0,screens):
+        for j in range(0,240):
+            for k in range(0,image.get_width()):
+                pixel = image.get_at((k, 240*i + j))
+                if not pixel_compare(pixel, map[0]):
+                    for l in range(0,int((len(map)-1)/3)):
+                        if pixel_compare(pixel, map[1 + 3*l]) or pixel_compare(pixel, map[2 + 3*l]) or pixel_compare(pixel, map[3 + 3*l]):
+                            #print(256*i + 16*int(j/16) + int(k/16))
+                            if attributes[256*i + 16*int(j/16) + int(k/16)] == -1:
+                                #print("assign %d %d %d as %d=%d" % (i,int(j/16),int(k/16),256*i + 16*int(j/16) + int(k/16),l))
+                                attributes[256*i + 16*int(j/16) + int(k/16)] = l
+                            else:
+                                if attributes[256*i + 16*int(j/16) + int(k/16)] != l:
+                                    print("screen %d 16x16 tile %d has too many colors!" % (screens, 16*int(j/16) + int(k/16)))
+                                    sys.exit(2)
+
+    for i in range(0,len(attributes)):
+        if attributes[i] == -1:
+            attributes[i] = 0
+
+    table = [0] * (64*screens)
+    for i in range(0,screens):
+        for j in range(0,256):
+            #print(j)
+            if (int(j/16) & 1) == 0:
+                #print(" %d"%(64*i + int(j/32)*8 + int((j%16)/2)))
+                if (j & 1) == 0:
+                    table[64*i + int(j/32)*8 + int((j%16)/2)] += attributes[256*i + j]
+                else:
+                    table[64*i + int(j/32)*8 + int((j%16)/2)] += (attributes[256*i + j]<<2)
+            else:
+                #print(" %d"%(64*i + int(j/32)*8 + int((j%16)/2)))
+                if (j & 1) == 0:
+                    table[64*i + int(j/32)*8 + int((j%16)/2)] += (attributes[256*i + j]<<4)
+                else:
+                    table[64*i + int(j/32)*8 + int((j%16)/2)] += (attributes[256*i + j]<<6)
+
+    #for i in range(0,int(len(attributes)/16)):
+    #    print("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d"%(            attributes[i*16+0],            attributes[i*16+1],            attributes[i*16+2],            attributes[i*16+3],            attributes[i*16+4],            attributes[i*16+5],            attributes[i*16+6],            attributes[i*16+7],            attributes[i*16+8],            attributes[i*16+9],            attributes[i*16+10],            attributes[i*16+11],            attributes[i*16+12],            attributes[i*16+13],            attributes[i*16+14],            attributes[i*16+15]))
+
+    #print(attributes)
+    #print(table)
+    return table,attributes
 
 def create_nametable(pattern, offset):
     nametable = [-1] * int(len(pattern)/16)
@@ -285,9 +344,10 @@ def main():
     offset = 0
     rle = False
     hex_option = False
+    attribute_option = False
 
     short_options = ":h"
-    long_options = ["help", "in=", "out=", "map=", "c=", "offset=", "RLE", "hex"]
+    long_options = ["help", "in=", "out=", "map=", "c=", "offset=", "RLE", "hex", "attribute"]
     try:
         options, arguments = getopt.getopt(sys.argv[1:], short_options, long_options)
     except getopt.GetoptError as error:
@@ -318,6 +378,8 @@ def main():
             rle = True
         if option == "--hex":
             hex_option = True
+        if option == "--attribute":
+            attribute_option = True
 
     if in_file == None:
         print("input file required")
@@ -351,7 +413,11 @@ def main():
             #    out_image.set_at((j,i), (pixel.r, pixel.g, pixel.b, 0))
 
     if c_file != None:
-        c_pattern_table = create_pattern(out_image, map)
+        attribute_map = None
+        c_attribute_table = None
+        if attribute_option == True:
+            c_attribute_table, attribute_map = create_attributes(out_image, map)
+        c_pattern_table = create_pattern(out_image, map, attribute_map)
         c_reduced_pattern, c_name_table = create_nametable(c_pattern_table, offset)
         if rle == True:
             c_rle_name_table = create_rle(c_name_table)
@@ -380,6 +446,15 @@ def main():
                 else:
                     c_handle.write("%d," % (c_name_table[i]))
             c_handle.write("};\n")
+        if attribute_option == True:
+            c_handle.write("unsigned char attributes[%d] = {" % (len(c_attribute_table)))
+            for i in range(len(c_attribute_table)):
+                if hex_option == True:
+                    c_handle.write("0x%02X," % (c_attribute_table[i]))
+                else:
+                    c_handle.write("%d," % (c_attribute_table[i]))
+            c_handle.write("};\n")
+
         c_handle.close()
         #print(len(c_pattern_table))
 
