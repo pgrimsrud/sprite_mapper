@@ -176,21 +176,31 @@ def create_attributes(image, map):
     screens = int((image.get_height() + 239)/240)
     attributes = [-1] * (256 * screens)
     #print(attributes)
-    for i in range(0,screens):
-        for j in range(0,240):
-            for k in range(0,image.get_width()):
-                pixel = image.get_at((k, 240*i + j))
-                if not pixel_compare(pixel, map[0]):
-                    for l in range(0,int((len(map)-1)/3)):
-                        if pixel_compare(pixel, map[1 + 3*l]) or pixel_compare(pixel, map[2 + 3*l]) or pixel_compare(pixel, map[3 + 3*l]):
-                            #print(256*i + 16*int(j/16) + int(k/16))
-                            if attributes[256*i + 16*int(j/16) + int(k/16)] == -1:
-                                #print("assign %d %d %d as %d=%d" % (i,int(j/16),int(k/16),256*i + 16*int(j/16) + int(k/16),l))
-                                attributes[256*i + 16*int(j/16) + int(k/16)] = l
-                            else:
-                                if attributes[256*i + 16*int(j/16) + int(k/16)] != l:
-                                    print("screen %d 16x16 tile %d has too many colors!" % (screens, 16*int(j/16) + int(k/16)))
-                                    sys.exit(2)
+    for i in range(0,screens): #for each screen
+        for j in range(0,240): #for each 16x16 tile on the screen
+            tile_colors = []
+            for k in range(0,256): #for each pixel in the tile
+                pixel = image.get_at((((j%16) * 16) + (k%16), 240*i + (int(j/16) * 16) + int(k/16)))
+                if not pixel in tile_colors:
+                    tile_colors.append(pixel)
+                    if len(tile_colors) > 4:
+                        print("screen %d 16x16 tile %d (%d,%d) has too many colors!" % (i, j, ((j%16) * 16) + (k%16), 240*i + (int(j/16) * 16) + int(k/16)))
+                        print(tile_colors)
+                        sys.exit(2)
+
+            for l in range(0,int((len(map)-1)/3)):
+                palette_found = True
+                for m in tile_colors:
+                    if not (pixel_compare(m, map[0]) or pixel_compare(m, map[1 + 3*l]) or pixel_compare(m, map[2 + 3*l]) or pixel_compare(m, map[3 + 3*l])):
+                        palette_found = False
+
+                if palette_found == True:
+                    attributes[256*i + j] = l
+                    break
+
+            if attributes[256*i + j] == -1:
+                print("screen %d 16x16 tile %d (%d,%d) doesn't match a defined palette!" % (i, j, ((j%16) * 16), 240*i + (int(j/16) * 16)))
+                sys.exit(2)
 
     for i in range(0,len(attributes)):
         if attributes[i] == -1:
