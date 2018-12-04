@@ -331,7 +331,11 @@ def create_rle( nametable ):
                 rle.append(pre)
                 rle.append(key)
                 if i == len(nametable)-1:
-                    rle.append(count)
+                    if nametable[i] != pre:
+                        rle.append(count-1)
+                        rle.append(nametable[i])
+                    else:
+                        rle.append(count)
                 else:
                     rle.append(count-1)
             pre = nametable[i]
